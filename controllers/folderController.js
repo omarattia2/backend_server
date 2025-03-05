@@ -3,19 +3,23 @@ const { Folder, User } = require('../models/modelRelations');
 
 // Create a new folder
 const createFolder = async (req, res) => {
-  const { name } = req.body;
-  const userId = req.user.id; // Get the user ID from the authenticated request
-
-  try {
-    // Create the folder
-    const newFolder = await Folder.create({ name, userId });
-
-    res.status(201).json({ message: 'Folder created successfully', folder: newFolder });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
+    const { name, userId: targetUserId } = req.body; // Allow specifying a target user ID
+    const userId = req.user.id; // ID of the admin/superadmin making the request
+    const userRole = req.user.role;
+  
+    try {
+      // If the user is an admin/superadmin and a targetUserId is provided, use it
+      const folderUserId = (userRole === 'admin' || userRole === 'superadmin') && targetUserId ? targetUserId : userId;
+  
+      // Create the folder
+      const newFolder = await Folder.create({ name, userId: folderUserId });
+  
+      res.status(201).json({ message: 'Folder created successfully', folder: newFolder });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: 'Server error' });
+    }
+  };
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 // Get all folders
@@ -25,7 +29,7 @@ const getFolders = async (req, res) => {
 
   try {
     let folders;
-    if (userRole === 'admin') {
+    if (userRole === 'admin' || userRole === 'superadmin') {
       // Admins can view all folders
       folders = await Folder.findAll();
     } else {
@@ -51,7 +55,7 @@ const deleteFolder = async (req, res) => {
 
   try {
     let folder;
-    if (userRole === 'admin') {
+    if (userRole === 'admin' || userRole === 'superadmin') {
       // Admins can delete any folder
       folder = await Folder.findOne({ where: { id: folderId } });
     } else {

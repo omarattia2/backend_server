@@ -272,7 +272,7 @@ const getMedia = async (req, res) => {
 
   try {
     let media;
-    if (userRole === 'admin') {
+    if (userRole === 'admin' || userRole === 'superadmin') {
       // Admins can view all media in any folder
       media = await Media.findAll({ where: { folderId } });
     } else {
@@ -301,7 +301,7 @@ const searchMedia = async (req, res) => {
 
   try {
     let media;
-    if (userRole === 'admin') {
+    if (userRole === 'admin'  || userRole === 'superadmin') {
       // Admins can search all media
       media = await Media.findAll({
         where: {
@@ -347,7 +347,7 @@ const updateMedia = async (req, res) => {
 
   try {
     let media;
-    if (userRole === 'admin') {
+    if (userRole === 'admin' || userRole === 'superadmin') {
       // Admins can update any media file
       media = await Media.findOne({ where: { id: mediaId } });
     } else {
@@ -386,7 +386,7 @@ const deleteMedia = async (req, res) => {
 
   try {
     let media;
-    if (userRole === 'admin') {
+    if (userRole === 'admin' || userRole === 'superadmin') {
       // Admins can delete any media file
       media = await Media.findOne({ where: { id: mediaId } });
     } else {
@@ -424,7 +424,7 @@ const downloadMedia = async (req, res) => {
 
   try {
     let media;
-    if (userRole === 'admin') {
+    if ( userRole !== 'superadmin') {
       // Admins can download any media file
       media = await Media.findOne({ where: { id: mediaId } });
     } else {
