@@ -16,12 +16,12 @@ router.put('/profile', authMiddleware, updateProfile);
 // Get all users (admin only)
 router.get('/users', authMiddleware, getAllUsers);
 
-//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 // Promote a user to admin
 router.put('/promote/:userId', authMiddleware, promoteToAdmin);
 // Demote a user from admin to regular user
 router.put('/demote/:userId', authMiddleware, demoteFromAdmin);
-//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 
 // Protected route
 router.get('/protected', authMiddleware, (req, res) => {
