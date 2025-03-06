@@ -138,6 +138,43 @@ const changePassword = async (req, res) => {
   
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+// Delete a user
+const deleteUser = async (req, res) => {
+    const { userId } = req.params; // ID of the user to delete
+    const requestingUserId = req.user.id; // ID of the user making the request
+    const requestingUserRole = req.user.role; // Role of the user making the request
+
+    try {
+        // Debug logs
+        console.log('Requesting User ID (Type):', typeof requestingUserId, requestingUserId);
+        console.log('Requesting User Role:', requestingUserRole);
+        console.log('User ID to Delete (Type):', typeof userId, userId);
+
+        // Find the user to delete
+        const userToDelete = await User.findOne({ where: { id: userId } });
+        if (!userToDelete) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Ensure ID types match
+        if (requestingUserRole === 'admin' || 
+            requestingUserRole === 'superadmin' || 
+            Number(requestingUserId) === Number(userId)) { 
+
+            await userToDelete.destroy();
+            return res.status(200).json({ message: 'User deleted successfully' });
+
+        } else {
+            return res.status(403).json({ message: 'You do not have permission to delete this user' });
+        }
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 // Get all users
 const getAllUsers = async (req, res) => {
     const requestingUserRole = req.user.role;
@@ -266,4 +303,5 @@ module.exports = {
     demoteFromAdmin,
     uploadProfilePicture,
     changePassword,
+    deleteUser,
   };
