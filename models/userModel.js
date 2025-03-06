@@ -57,6 +57,11 @@ const User = sequelize.define('User', {
     type: DataTypes.ENUM('user', 'admin', 'superadmin'), // Add 'superadmin' role
     defaultValue: 'user',
   },
+
+  profilePicture: {
+    type: DataTypes.STRING, // Store the file path
+    allowNull: true,
+  },
 });
 
 module.exports = User;

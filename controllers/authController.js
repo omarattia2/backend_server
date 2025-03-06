@@ -98,6 +98,46 @@ const updateProfile = async (req, res) => {
 
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+// Change password
+const changePassword = async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id;
+  
+    try {
+      console.log('Full Request Body:', req.body); // Debugging Line
+  
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: 'Both currentPassword and newPassword are required' });
+      }
+  
+      const user = await User.findOne({ where: { id: userId } });
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+  
+      console.log('Current Password:', currentPassword);
+      console.log('User Password (Hashed):', user.password);
+  
+      const isMatch = await bcrypt.compare(currentPassword, user.password);
+      if (!isMatch) {
+        return res.status(400).json({ message: 'Current password is incorrect' });
+      }
+  
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(newPassword, salt);
+  
+      user.password = hashedPassword;
+      await user.save();
+  
+      res.status(200).json({ message: 'Password changed successfully' });
+    } catch (err) {
+      console.error('Error changing password:', err);
+      res.status(500).json({ message: 'Server error' });
+    }
+  };
+  
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 // Get all users
 const getAllUsers = async (req, res) => {
     const requestingUserRole = req.user.role;
@@ -125,34 +165,6 @@ const getAllUsers = async (req, res) => {
   //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 // Promote a user to admin
-
-
-// const promoteToAdmin = async (req, res) => {
-//     const { userId } = req.params;
-//     const requestingUserRole = req.user.role;
-  
-//     try {
-//       // Only admins can promote users to admin
-//       if (requestingUserRole !== 'admin') {
-//         return res.status(403).json({ message: 'Access denied. Admins only.' });
-//       }
-  
-//       // Find the user to promote
-//       const user = await User.findOne({ where: { id: userId } });
-//       if (!user) {
-//         return res.status(404).json({ message: 'User not found' });
-//       }
-  
-//       // Promote the user to admin
-//       user.role = 'admin';
-//       await user.save();
-  
-//       res.status(200).json({ message: 'User promoted to admin successfully', user });
-//     } catch (err) {
-//       console.error(err);
-//       res.status(500).json({ message: 'Server error' });
-//     }
-//   };
 
 const promoteToAdmin = async (req, res) => {
     const { userId } = req.params;
@@ -184,39 +196,6 @@ const promoteToAdmin = async (req, res) => {
 
 // Demote a user from admin to regular user
 
-
-// const demoteFromAdmin = async (req, res) => {
-//     const { userId } = req.params;
-//     const requestingUserRole = req.user.role;
-
-//     try {
-//         // Only admins can demote other admins
-//         if (requestingUserRole !== 'admin') {
-//             return res.status(403).json({ message: 'Access denied. Admins only.' });
-//         }
-
-//         // Find the user
-//         const user = await User.findOne({ where: { id: userId } });
-//         if (!user) {
-//             return res.status(404).json({ message: 'User not found' });
-//         }
-
-//         // Prevent self-demotion (optional)
-//         if (user.id === req.user.id) {
-//             return res.status(400).json({ message: 'You cannot demote yourself.' });
-//         }
-
-//         // Change role to regular user
-//         user.role = 'user'; // Adjust based on your role naming convention
-//         await user.save();
-
-//         res.status(200).json({ message: 'User demoted to regular user successfully', user });
-//     } catch (err) {
-//         console.error(err);
-//         res.status(500).json({ message: 'Server error' });
-//     }
-// };
-
 const demoteFromAdmin = async (req, res) => {
     const { userId } = req.params;
     const requestingUserRole = req.user.role;
@@ -247,6 +226,35 @@ const demoteFromAdmin = async (req, res) => {
 
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+// Upload profile picture
+const uploadProfilePicture = async (req, res) => {
+    const userId = req.user.id; // Get the user ID from the authenticated request
+  
+    try {
+      // Check if a file was uploaded
+      if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded' });
+      }
+  
+      // Get the file path
+      const filePath = req.file.path;
+  
+      // Find the user
+      const user = await User.findOne({ where: { id: userId } });
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+  
+      // Update the user's profile picture
+      user.profilePicture = filePath;
+      await user.save();
+  
+      res.status(200).json({ message: 'Profile picture uploaded successfully', user });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: 'Server error' });
+    }
+  };
 
 // Export both functions
 module.exports = {
@@ -256,4 +264,6 @@ module.exports = {
     updateProfile,
     getAllUsers,
     demoteFromAdmin,
+    uploadProfilePicture,
+    changePassword,
   };

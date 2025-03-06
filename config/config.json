@@ -1,0 +1,23 @@
+{
+  "development": {
+    "username": "postgres",
+    "password": "159753",
+    "database": "media_uploader",
+    "host": "127.0.0.1",
+    "dialect": "postgres"
+  },
+  "test": {
+    "username": "postgres",
+    "password": "159753",
+    "database": "media_uploader",
+    "host": "127.0.0.1",
+    "dialect": "postgres"
+  },
+  "production": {
+    "username": "postgres",
+    "password": "159753",
+    "database": "media_uploader",
+    "host": "127.0.0.1",
+    "dialect": "postgres"
+  }
+}

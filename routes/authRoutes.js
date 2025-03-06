@@ -1,6 +1,7 @@
 const express = require('express');
-const { registerUser, loginUser ,updateProfile ,promoteToAdmin, getAllUsers ,demoteFromAdmin } = require('../controllers/authController');
+const { registerUser, loginUser ,updateProfile ,promoteToAdmin, getAllUsers ,demoteFromAdmin ,uploadProfilePicture, changePassword  } = require('../controllers/authController');
 const authMiddleware = require('../middleware/authMiddleware');
+const profileUpload = require('../utils/profileUpload'); 
 
 const router = express.Router();
 
@@ -13,10 +14,16 @@ router.post('/login', loginUser);
 // Update Profile route
 router.put('/profile', authMiddleware, updateProfile);
 
-// Get all users (admin only)
-router.get('/users', authMiddleware, getAllUsers);
+// Change password
+router.put('/change-password', authMiddleware, changePassword);
+
+// Upload profile picture
+router.put('/profile-picture', authMiddleware, profileUpload.single('profilePicture'), uploadProfilePicture);
 
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+// Get all users (admin only)
+router.get('/users', authMiddleware, getAllUsers);
 // Promote a user to admin
 router.put('/promote/:userId', authMiddleware, promoteToAdmin);
 // Demote a user from admin to regular user
