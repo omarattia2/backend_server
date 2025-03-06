@@ -20,15 +20,19 @@ router.put('/change-password', authMiddleware, changePassword);
 // Upload profile picture
 router.put('/profile-picture', authMiddleware, profileUpload.single('profilePicture'), uploadProfilePicture);
 
+<<<<<<< HEAD
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 // Get all users (admin only)
 router.get('/users', authMiddleware, getAllUsers);
+=======
+
+>>>>>>> 145a995db6a20e51be896b9e99b97d73175dd509
 // Promote a user to admin
 router.put('/promote/:userId', authMiddleware, promoteToAdmin);
 // Demote a user from admin to regular user
 router.put('/demote/:userId', authMiddleware, demoteFromAdmin);
-//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 
 // Protected route
 router.get('/protected', authMiddleware, (req, res) => {
