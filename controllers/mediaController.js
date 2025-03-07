@@ -1,37 +1,90 @@
 const { Media, Folder } = require('../models/modelRelations');
-const { Op } = require('sequelize');
-const path = require('path');
+const { Sequelize, Op } = require('sequelize');
+const sharp = require('sharp');
+const ffmpeg = require('fluent-ffmpeg');
+const path = require('path'); // Only one import for 'path'
 const fs = require('fs');
-
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-// Upload a media file
 const uploadMedia = async (req, res) => {
-  const { title, description, type, folderId } = req.body;
-  const userId = req.user.id; // Get the user ID from the authenticated request
-
-  try {
-    // Check if the folder exists and belongs to the user
-    const folder = await Folder.findOne({ where: { id: folderId, userId } });
-    if (!folder) {
-      return res.status(404).json({ message: 'Folder not found' });
+    const { title, description, type, folderId } = req.body;
+    const userId = req.user.id;
+  
+    try {
+      // Check if the folder exists and belongs to the user
+      const folder = await Folder.findOne({ where: { id: folderId, userId } });
+      if (!folder) {
+        return res.status(404).json({ message: 'Folder not found' });
+      }
+  
+      // Save the file metadata in the database
+      const newMedia = await Media.create({
+        title,
+        description,
+        type,
+        filePath: req.file.path,
+        folderId,
+      });
+  
+      // Ensure the thumbnails directory exists
+      const thumbnailsDir = path.join(__dirname, '../uploads/thumbnails');
+      if (!fs.existsSync(thumbnailsDir)) {
+        fs.mkdirSync(thumbnailsDir, { recursive: true });
+      }
+  
+      // Generate a thumbnail for images and videos
+      let thumbnailPath = null;
+      if (type === 'image') {
+        // Generate thumbnail for images
+        const thumbnailFileName = `thumbnail-${Date.now()}.jpg`;
+        thumbnailPath = path.join(thumbnailsDir, thumbnailFileName);
+  
+        try {
+          await sharp(req.file.path)
+            .resize(200, 200) // Resize to 200x200 pixels
+            .toFile(thumbnailPath);
+        } catch (err) {
+          console.error('Error generating image thumbnail:', err);
+          thumbnailPath = null; // Set to null if thumbnail generation fails
+        }
+  
+      } else if (type === 'video') {
+        // Generate thumbnail for videos
+        const thumbnailFileName = `thumbnail-${Date.now()}.jpg`;
+        thumbnailPath = path.join(thumbnailsDir, thumbnailFileName);
+  
+        try {
+          await new Promise((resolve, reject) => {
+            ffmpeg(req.file.path)
+              .screenshots({
+                timestamps: ['00:00:01'], // Capture a frame at 1 second
+                filename: thumbnailFileName,
+                folder: thumbnailsDir,
+              })
+              .on('end', resolve)
+              .on('error', (err) => {
+                console.error('Error generating video thumbnail:', err);
+                reject(err);
+              });
+          });
+        } catch (err) {
+          console.error('Error generating video thumbnail:', err);
+          thumbnailPath = null; // Set to null if thumbnail generation fails
+        }
+      }
+  
+      // Update the media record with the thumbnail path
+      if (thumbnailPath) {
+        newMedia.thumbnailPath = thumbnailPath;
+        await newMedia.save();
+      }
+  
+      res.status(201).json({ message: 'Media uploaded successfully', media: newMedia });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: 'Server error' });
     }
-
-    // Save the file metadata in the database
-    const newMedia = await Media.create({
-      title,
-      description,
-      type,
-      filePath: req.file.path, // Path to the uploaded file
-      folderId,
-    });
-
-    res.status(201).json({ message: 'Media uploaded successfully', media: newMedia });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
+  };
 
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 

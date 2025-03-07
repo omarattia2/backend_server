@@ -22,6 +22,10 @@ const Media = sequelize.define('Media', {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  thumbnailPath: {
+    type: DataTypes.STRING, // Path to the thumbnail
+    allowNull: true,
+  },
   folderId: {
     type: DataTypes.INTEGER,
     allowNull: false,

@@ -15,6 +15,10 @@ const Folder = sequelize.define('Folder', {
     type: DataTypes.INTEGER,
     allowNull: false,
   },
+  sharedWith: {
+    type: DataTypes.ARRAY(DataTypes.INTEGER), // Array of user IDs
+    defaultValue: [],
+  },
 });
 
 module.exports = Folder;
