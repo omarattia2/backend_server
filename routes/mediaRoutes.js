@@ -1,7 +1,8 @@
 const express = require('express');
-const { uploadMedia, getMedia, deleteMedia, updateMedia, searchMedia , downloadMedia } = require('../controllers/mediaController');
+const { uploadMedia, getMedia, deleteMedia, updateMedia, searchMedia , downloadMedia, updateMediaTags } = require('../controllers/mediaController');
 const authMiddleware = require('../middleware/authMiddleware');
 const upload = require('../utils/fileUpload');
+const activityLogger = require('../middleware/activityLogger');
 
 
 const router = express.Router();
@@ -21,8 +22,15 @@ router.get('/media/search', authMiddleware, searchMedia);
 // Download a media file
 router.get('/media/:mediaId/download', authMiddleware, downloadMedia);
 
+// Update media tags
+router.put('/media/:mediaId/tags', authMiddleware, updateMediaTags);
 
 // Delete a media file
 router.delete('/media/:mediaId', authMiddleware, deleteMedia);
+
+
+router.post('/media', authMiddleware, activityLogger, upload.single('file'), uploadMedia);
+router.put('/media/:mediaId', authMiddleware, activityLogger, updateMedia);
+router.delete('/media/:mediaId', authMiddleware, activityLogger, deleteMedia);
 
 module.exports = router;

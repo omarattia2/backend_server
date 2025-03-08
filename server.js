@@ -5,7 +5,9 @@ const authRoutes = require('./routes/authRoutes');
 const folderRoutes = require('./routes/folderRoutes');
 const mediaRoutes = require('./routes/mediaRoutes');
 const adminRoutes = require('./routes/adminRoutes'); // Import admin routes
-
+const adminDashboardRoutes = require('./routes/adminDashboardRoutes');
+const rateLimit = require('express-rate-limit');  
+const limiter = require('./middleware/rateLimiter'); // Import the rate limiter
 // Load environment variables
 dotenv.config();
 
@@ -14,6 +16,7 @@ const app = express();
 
 // Middleware
 app.use(express.json());
+app.use(limiter);
 
 // Use auth routes
 app.use('/api/auth', authRoutes);
@@ -31,6 +34,9 @@ app.use('/api', adminRoutes);
 app.get('/', (req, res) => {
   res.send('Media Uploader Backend is running!');
 });
+
+
+app.use(adminDashboardRoutes); // Use admin dashboard routes
 
 // Database connection and model synchronization
 sequelize

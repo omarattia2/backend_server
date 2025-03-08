@@ -5,7 +5,6 @@ const ffmpeg = require('fluent-ffmpeg');
 const path = require('path'); // Only one import for 'path'
 const fs = require('fs');
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
 const uploadMedia = async (req, res) => {
     const { title, description, type, folderId } = req.body;
     const userId = req.user.id;
@@ -14,6 +13,10 @@ const uploadMedia = async (req, res) => {
       // Check if the folder exists and belongs to the user
       const folder = await Folder.findOne({ where: { id: folderId, userId } });
       if (!folder) {
+        // Delete the uploaded file if the folder doesn't exist
+        if (req.file) {
+          fs.unlinkSync(req.file.path);
+        }
         return res.status(404).json({ message: 'Folder not found' });
       }
   
@@ -26,51 +29,32 @@ const uploadMedia = async (req, res) => {
         folderId,
       });
   
-      // Ensure the thumbnails directory exists
-      const thumbnailsDir = path.join(__dirname, '../uploads/thumbnails');
-      if (!fs.existsSync(thumbnailsDir)) {
-        fs.mkdirSync(thumbnailsDir, { recursive: true });
-      }
-  
       // Generate a thumbnail for images and videos
       let thumbnailPath = null;
       if (type === 'image') {
         // Generate thumbnail for images
         const thumbnailFileName = `thumbnail-${Date.now()}.jpg`;
-        thumbnailPath = path.join(thumbnailsDir, thumbnailFileName);
+        thumbnailPath = path.join(__dirname, '../uploads/thumbnails', thumbnailFileName);
   
-        try {
-          await sharp(req.file.path)
-            .resize(200, 200) // Resize to 200x200 pixels
-            .toFile(thumbnailPath);
-        } catch (err) {
-          console.error('Error generating image thumbnail:', err);
-          thumbnailPath = null; // Set to null if thumbnail generation fails
-        }
+        await sharp(req.file.path)
+          .resize(200, 200) // Resize to 200x200 pixels
+          .toFile(thumbnailPath);
   
       } else if (type === 'video') {
         // Generate thumbnail for videos
         const thumbnailFileName = `thumbnail-${Date.now()}.jpg`;
-        thumbnailPath = path.join(thumbnailsDir, thumbnailFileName);
+        thumbnailPath = path.join(__dirname, '../uploads/thumbnails', thumbnailFileName);
   
-        try {
-          await new Promise((resolve, reject) => {
-            ffmpeg(req.file.path)
-              .screenshots({
-                timestamps: ['00:00:01'], // Capture a frame at 1 second
-                filename: thumbnailFileName,
-                folder: thumbnailsDir,
-              })
-              .on('end', resolve)
-              .on('error', (err) => {
-                console.error('Error generating video thumbnail:', err);
-                reject(err);
-              });
-          });
-        } catch (err) {
-          console.error('Error generating video thumbnail:', err);
-          thumbnailPath = null; // Set to null if thumbnail generation fails
-        }
+        await new Promise((resolve, reject) => {
+          ffmpeg(req.file.path)
+            .screenshots({
+              timestamps: ['00:00:01'], // Capture a frame at 1 second
+              filename: thumbnailFileName,
+              folder: path.join(__dirname, '../uploads/thumbnails'),
+            })
+            .on('end', resolve)
+            .on('error', reject);
+        });
       }
   
       // Update the media record with the thumbnail path
@@ -81,11 +65,52 @@ const uploadMedia = async (req, res) => {
   
       res.status(201).json({ message: 'Media uploaded successfully', media: newMedia });
     } catch (err) {
+      // Delete the uploaded file if an error occurs
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
       console.error(err);
       res.status(500).json({ message: 'Server error' });
     }
   };
 
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+// Update media tags
+const updateMediaTags = async (req, res) => {
+  const { mediaId } = req.params;
+  const { tags } = req.body;
+  const userId = req.user.id;
+
+  try {
+    // Find the media file
+    const media = await Media.findOne({
+      where: { id: mediaId },
+      include: { model: Folder, where: { userId } }, // Ensure the media belongs to the user
+    });
+
+    if (!media) {
+      return res.status(404).json({ message: 'Media not found' });
+    }
+
+    // Convert tags to an array if it's a string
+    let tagsArray = [];
+    if (typeof tags === 'string') {
+      tagsArray = tags.split(',').map(tag => tag.trim()); // Split by comma and trim whitespace
+    } else if (Array.isArray(tags)) {
+      tagsArray = tags;
+    }
+
+    // Update the tags
+    media.tags = tagsArray;
+    await media.save();
+
+    res.status(200).json({ message: 'Media tags updated successfully', media });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 // Get all media for a specific folder
@@ -117,22 +142,67 @@ const getMedia = async (req, res) => {
 
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+
+
+
 // Search media files
+
 const searchMedia = async (req, res) => {
-  const { query } = req.query; // Search query
+  const { query, type, startDate, endDate, page = 1, limit = 10 } = req.query;
   const userId = req.user.id;
   const userRole = req.user.role;
 
   try {
-    let media;
-    if (userRole === 'admin'  || userRole === 'superadmin') {
+    // Calculate offset for pagination
+    const offset = (page - 1) * limit;
+
+    // Build the search conditions
+    const searchConditions = [];
+    if (query) {
+      searchConditions.push(
+        { title: { [Op.iLike]: `%${query}%` } },
+        { description: { [Op.iLike]: `%${query}%` } },
+        { tags: { [Op.overlap]: [query] } }
+      );
+    }
+
+    // Build the filter conditions
+    const filterConditions = {};
+    if (type) {
+      filterConditions.type = type;
+    }
+    if (startDate && endDate) {
+      filterConditions.createdAt = {
+        [Op.between]: [new Date(startDate), new Date(endDate)],
+      };
+    } else if (startDate) {
+      filterConditions.createdAt = {
+        [Op.gte]: new Date(startDate),
+      };
+    } else if (endDate) {
+      filterConditions.createdAt = {
+        [Op.lte]: new Date(endDate),
+      };
+    }
+
+    let media, total;
+    if (userRole === 'admin' || userRole === 'superadmin') {
       // Admins can search all media
       media = await Media.findAll({
         where: {
-          [Op.or]: [
-            { title: { [Op.iLike]: `%${query}%` } }, // Case-insensitive search for title
-            { description: { [Op.iLike]: `%${query}%` } }, // Case-insensitive search for description
-            { type: { [Op.iLike]: `%${query}%` } }, // Case-insensitive search for type
+          [Op.and]: [
+            searchConditions.length > 0 ? { [Op.or]: searchConditions } : {},
+            filterConditions,
+          ],
+        },
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+      });
+      total = await Media.count({
+        where: {
+          [Op.and]: [
+            searchConditions.length > 0 ? { [Op.or]: searchConditions } : {},
+            filterConditions,
           ],
         },
       });
@@ -141,19 +211,40 @@ const searchMedia = async (req, res) => {
       media = await Media.findAll({
         include: {
           model: Folder,
-          where: { userId }, // Ensure the media belongs to the user
+          where: { userId },
         },
         where: {
-          [Op.or]: [
-            { title: { [Op.iLike]: `%${query}%` } },
-            { description: { [Op.iLike]: `%${query}%` } },
-            { type: { [Op.iLike]: `%${query}%` } },
+          [Op.and]: [
+            searchConditions.length > 0 ? { [Op.or]: searchConditions } : {},
+            filterConditions,
+          ],
+        },
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+      });
+      total = await Media.count({
+        include: {
+          model: Folder,
+          where: { userId },
+        },
+        where: {
+          [Op.and]: [
+            searchConditions.length > 0 ? { [Op.or]: searchConditions } : {},
+            filterConditions,
           ],
         },
       });
     }
 
-    res.status(200).json({ media });
+    res.status(200).json({
+      media,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -278,4 +369,5 @@ module.exports = {
   updateMedia,
   deleteMedia,
   downloadMedia,
+  updateMediaTags,
 };

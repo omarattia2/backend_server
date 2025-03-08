@@ -2,37 +2,44 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { User } = require('../models/modelRelations');
 const dotenv = require('dotenv');
+const { validationResult } = require('express-validator');
 
 dotenv.config();
 
 // Register a new user
 const registerUser = async (req, res) => {
-  const { username, email, password } = req.body;
-
-  try {
-    // Check if the user already exists
-    const existingUser = await User.findOne({ where: { email } });
-    if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
+    // Validate inputs
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
     }
-
-    // Hash the password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Create the user
-    const newUser = await User.create({
-      username,
-      email,
-      password: hashedPassword,
-    });
-
-    res.status(201).json({ message: 'User registered successfully', user: newUser });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
+  
+    const { username, email, password } = req.body;
+  
+    try {
+      // Check if the user already exists
+      const existingUser = await User.findOne({ where: { email } });
+      if (existingUser) {
+        return res.status(400).json({ message: 'User already exists' });
+      }
+  
+      // Hash the password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+  
+      // Create the user
+      const newUser = await User.create({
+        username,
+        email,
+        password: hashedPassword,
+      });
+  
+      res.status(201).json({ message: 'User registered successfully', user: newUser });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: 'Server error' });
+    }
+  };
 
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // Login user
@@ -292,6 +299,9 @@ const uploadProfilePicture = async (req, res) => {
       res.status(500).json({ message: 'Server error' });
     }
   };
+
+
+  
 
 // Export both functions
 module.exports = {

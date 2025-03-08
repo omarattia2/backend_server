@@ -30,6 +30,12 @@ const Media = sequelize.define('Media', {
     type: DataTypes.INTEGER,
     allowNull: false,
   },
+
+  tags: {
+    type: DataTypes.ARRAY(DataTypes.STRING), // Array of tags
+    defaultValue: [],
+  },
+  
 });
 
 module.exports = Media;

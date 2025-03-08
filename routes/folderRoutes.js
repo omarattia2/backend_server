@@ -1,6 +1,7 @@
 const express = require('express');
 const { createFolder, getFolders, deleteFolder, shareFolder, getSharedFolders , unshareFolder } = require('../controllers/folderController');
 const authMiddleware = require('../middleware/authMiddleware');
+const activityLogger = require('../middleware/activityLogger');
 
 const router = express.Router();
 
@@ -22,5 +23,7 @@ router.delete('/folders/:folderId', authMiddleware, deleteFolder);
 // Unshare a folder for the current user
 router.delete('/folders/:folderId/unshare', authMiddleware, unshareFolder);
 
+router.post('/folders', authMiddleware, activityLogger, createFolder);
+router.delete('/folders/:folderId', authMiddleware, activityLogger, deleteFolder);
 
 module.exports = router;

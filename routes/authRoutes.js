@@ -2,11 +2,12 @@ const express = require('express');
 const { registerUser, loginUser ,updateProfile ,promoteToAdmin, getAllUsers ,demoteFromAdmin ,uploadProfilePicture, changePassword, deleteUser  } = require('../controllers/authController');
 const authMiddleware = require('../middleware/authMiddleware');
 const profileUpload = require('../utils/profileUpload'); 
-
+const activityLogger = require('../middleware/activityLogger');
+const { validateUserRegistration } = require('../middleware/validators');
 const router = express.Router();
 
-// Register route
-router.post('/register', registerUser);
+// Register route with validation
+router.post('/register', validateUserRegistration, registerUser);
 
 // Login route
 router.post('/login', loginUser);
@@ -30,6 +31,13 @@ router.get('/users', authMiddleware, getAllUsers);
 router.put('/promote/:userId', authMiddleware, promoteToAdmin);
 // Demote a user from admin to regular user
 router.put('/demote/:userId', authMiddleware, demoteFromAdmin);
+
+// Register route with validation and activity logging
+router.post('/register', validateUserRegistration, activityLogger, registerUser);
+
+// Login route with activity logging
+router.post('/login', activityLogger, loginUser);
+
 
 // Protected route
 router.get('/protected', authMiddleware, (req, res) => {
