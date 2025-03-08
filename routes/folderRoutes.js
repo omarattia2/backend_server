@@ -9,7 +9,12 @@ const router = express.Router();
 router.post('/folders', authMiddleware, createFolder);
 
 // Get all folders for the authenticated user
-router.get('/folders', authMiddleware, getFolders);
+router.get('/folders', authMiddleware, (req, res, next) => {
+    // Add pagination query parameters
+    req.query.page = req.query.page || 1;
+    req.query.limit = req.query.limit || 10;
+    next();
+  }, getFolders);
 
 // Share a folder with another user
 router.post('/folders/:folderId/share', authMiddleware, shareFolder);

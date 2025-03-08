@@ -4,6 +4,8 @@ const sharp = require('sharp');
 const ffmpeg = require('fluent-ffmpeg');
 const path = require('path'); // Only one import for 'path'
 const fs = require('fs');
+const redisClient = require('../utils/redisClient');
+
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const uploadMedia = async (req, res) => {
     const { title, description, type, folderId } = req.body;
@@ -114,32 +116,63 @@ const updateMediaTags = async (req, res) => {
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 // Get all media for a specific folder
+
 const getMedia = async (req, res) => {
   const { folderId } = req.params;
   const userId = req.user.id;
   const userRole = req.user.role;
+  const { page = 1, limit = 10 } = req.query;
+  const offset = (page - 1) * limit;
+  const cacheKey = `media:${folderId}:${userId}:${userRole}:${page}:${limit}`;
 
   try {
-    let media;
+    // Check Redis cache
+    const cachedData = await redisClient.get(cacheKey);
+    if (cachedData) {
+      return res.status(200).json(JSON.parse(cachedData));
+    }
+
+    let media, total;
     if (userRole === 'admin' || userRole === 'superadmin') {
       // Admins can view all media in any folder
-      media = await Media.findAll({ where: { folderId } });
+      media = await Media.findAll({
+        where: { folderId },
+        offset,
+        limit: parseInt(limit),
+      });
+      total = await Media.count({ where: { folderId } });
     } else {
       // Regular users can only view media in their own folders
       const folder = await Folder.findOne({ where: { id: folderId, userId } });
       if (!folder) {
         return res.status(404).json({ message: 'Folder not found' });
       }
-      media = await Media.findAll({ where: { folderId } });
+      media = await Media.findAll({
+        where: { folderId },
+        offset,
+        limit: parseInt(limit),
+      });
+      total = await Media.count({ where: { folderId } });
     }
 
-    res.status(200).json({ media });
+    const response = {
+      media,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+
+    // Cache the result for 1 hour
+    await redisClient.setEx(cacheKey, 3600, JSON.stringify(response));
+    res.status(200).json(response);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
   }
 };
-
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 

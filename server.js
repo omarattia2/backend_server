@@ -4,15 +4,21 @@ const sequelize = require('./config/dbConfig');
 const authRoutes = require('./routes/authRoutes');
 const folderRoutes = require('./routes/folderRoutes');
 const mediaRoutes = require('./routes/mediaRoutes');
-const adminRoutes = require('./routes/adminRoutes'); // Import admin routes
+const adminRoutes = require('./routes/adminRoutes');
 const adminDashboardRoutes = require('./routes/adminDashboardRoutes');
-const rateLimit = require('express-rate-limit');  
-const limiter = require('./middleware/rateLimiter'); // Import the rate limiter
+const rateLimit = require('express-rate-limit');
+const limiter = require('./middleware/rateLimiter');
+const swaggerUi = require('swagger-ui-express');
+const swaggerFile = require('./swagger-output.json'); 
+
 // Load environment variables
 dotenv.config();
 
 // Initialize Express app
 const app = express();
+
+// Swagger documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerFile));
 
 // Middleware
 app.use(express.json());
@@ -30,13 +36,13 @@ app.use('/api', mediaRoutes);
 // Use admin routes
 app.use('/api', adminRoutes);
 
+// Use admin dashboard routes
+app.use(adminDashboardRoutes);
+
 // Test route
 app.get('/', (req, res) => {
   res.send('Media Uploader Backend is running!');
 });
-
-
-app.use(adminDashboardRoutes); // Use admin dashboard routes
 
 // Database connection and model synchronization
 sequelize

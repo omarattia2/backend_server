@@ -1,5 +1,6 @@
 const { Folder } = require('../models/modelRelations');
 const { Sequelize, Op } = require('sequelize');
+const redisClient = require('../utils/redisClient');
 
 //------------------------------------------------------------------
 // Create a new folder
@@ -22,31 +23,69 @@ const createFolder = async (req, res) => {
 
 //------------------------------------------------------------------
 // Get all folders for a user
+
 const getFolders = async (req, res) => {
-  const userId = req.user.id;
-  const userRole = req.user.role;
-
-  try {
-    let folders;
-    if (userRole === 'admin' || userRole === 'superadmin') {
-      folders = await Folder.findAll();
-    } else {
-      folders = await Folder.findAll({
-        where: {
-          [Op.or]: [
-            { userId },
-            { sharedWith: { [Op.contains]: [userId] } },
-          ],
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    const { page = 1, limit = 10 } = req.query;
+    const offset = (page - 1) * limit;
+    const cacheKey = `folders:${userId}:${userRole}:${page}:${limit}`;
+  
+    try {
+      // Check Redis cache
+      const cachedData = await redisClient.get(cacheKey);
+      if (cachedData) {
+        return res.status(200).json(JSON.parse(cachedData));
+      }
+  
+      let folders, total;
+      if (userRole === 'admin' || userRole === 'superadmin') {
+        // Admins can view all folders
+        folders = await Folder.findAll({
+          offset,
+          limit: parseInt(limit),
+        });
+        total = await Folder.count();
+      } else {
+        // Regular users can only view their own folders or shared folders
+        folders = await Folder.findAll({
+          where: {
+            [Op.or]: [
+              { userId },
+              { sharedWith: { [Op.contains]: [userId] } },
+            ],
+          },
+          offset,
+          limit: parseInt(limit),
+        });
+        total = await Folder.count({
+          where: {
+            [Op.or]: [
+              { userId },
+              { sharedWith: { [Op.contains]: [userId] } },
+            ],
+          },
+        });
+      }
+  
+      const response = {
+        folders,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          totalPages: Math.ceil(total / limit),
         },
-      });
+      };
+  
+      // Cache the result for 1 hour
+      await redisClient.setEx(cacheKey, 3600, JSON.stringify(response));
+      res.status(200).json(response);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: 'Server error' });
     }
-
-    res.status(200).json({ folders });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
+  };
 
 //------------------------------------------------------------------
 // Share a folder with another user

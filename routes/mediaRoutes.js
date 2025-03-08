@@ -11,7 +11,12 @@ const router = express.Router();
 router.post('/media', authMiddleware, upload.single('file'), uploadMedia);
 
 // Get all media for a specific folder
-router.get('/folders/:folderId/media', authMiddleware, getMedia);
+router.get('/folders/:folderId/media', authMiddleware, (req, res, next) => {
+    // Add pagination query parameters
+    req.query.page = req.query.page || 1;
+    req.query.limit = req.query.limit || 10;
+    next();
+  }, getMedia);
 
 // Update media metadata
 router.put('/media/:mediaId', authMiddleware, updateMedia);
